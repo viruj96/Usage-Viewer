@@ -1,0 +1,12 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">1.0</ProductVersion>
+    <PublishDir>$(MSBuildThisFileDirectory)..\artifacts\msi\payload\</PublishDir>
+    <OutputPath>$(MSBuildThisFileDirectory)..\artifacts\msi\</OutputPath>
+    <OutputName>UsageViewer</OutputName>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir)</DefineConstants>
+  </PropertyGroup>
+
+</Project>

@@ -28,6 +28,20 @@ dotnet build UsageViewer.sln
 dotnet run --project UsageViewer.csproj
 ```
 
+## Build the MSI installer
+
+Build the per-user MSI from the repository root in PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Installer\Build-Msi.ps1
+```
+
+The MSI is written to `artifacts\msi\UsageViewer-1.0.0.msi`. Increase `ProductVersion` when building a release, for example:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Installer\Build-Msi.ps1 -ProductVersion 1.0.1
+```
+
 When Codex is installed somewhere outside `PATH`, set the executable path before starting the app:
 
 ```powershell

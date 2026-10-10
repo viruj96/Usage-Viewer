@@ -1,0 +1,44 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Usage Viewer"
+           Manufacturer="Usage Viewer"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="{52AF316B-3524-46F5-BF41-CA9A32E31295}"
+           Scope="perUser">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Usage Viewer is already installed."
+                  Schedule="afterInstallInitialize" />
+    <MediaTemplate EmbedCab="yes" />
+    <Feature Id="Main" Title="Usage Viewer" Level="1">
+      <ComponentGroupRef Id="PublishedFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="Usage Viewer" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuApplicationFolder" Name="Usage Viewer" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)**" />
+    </ComponentGroup>
+
+    <Component Id="StartMenuShortcut" Directory="ProgramMenuApplicationFolder" Guid="*">
+      <Shortcut Id="ApplicationShortcut"
+                Name="Usage Viewer"
+                Target="[INSTALLFOLDER]UsageViewer.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveProgramMenuApplicationFolder" On="uninstall" />
+      <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\Usage Viewer"
+                     Name="Installed"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>

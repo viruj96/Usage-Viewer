@@ -8,6 +8,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>UsageViewer</AssemblyName>
     <RootNamespace>UsageViewer</RootNamespace>
+    <ApplicationIcon>Assets\tray-gauge.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\tray-gauge.ico" LogicalName="UsageViewer.Assets.tray-gauge.ico" />
