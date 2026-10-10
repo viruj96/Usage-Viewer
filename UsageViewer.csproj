@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>UsageViewer</AssemblyName>
+    <RootNamespace>UsageViewer</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\tray-gauge.ico" LogicalName="UsageViewer.Assets.tray-gauge.ico" />
+    <EmbeddedResource Include="Assets\tray-gauge-development.ico" LogicalName="UsageViewer.Assets.tray-gauge-development.ico" />
+  </ItemGroup>
+</Project>
