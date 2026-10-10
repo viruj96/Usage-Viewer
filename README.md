@@ -2,6 +2,10 @@
 
 Usage Viewer is a small Windows desktop utility that keeps Codex account usage limits visible in a compact window. It starts the Codex App Server, reads the signed-in account's rate-limit data, and shows usage percentages and reset times. The window can stay above other windows and can be hidden to the Windows notification area.
 
+![Usage Viewer window with fictional demonstration values](docs/usage-viewer-preview.png)
+
+*Illustrative preview. The usage values and reset times shown are fictional.*
+
 ## What it does
 
 - Shows each usage-limit bucket returned by Codex, including its usage windows, reset countdowns, and available reset credits when present.

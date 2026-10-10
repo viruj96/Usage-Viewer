@@ -7,7 +7,11 @@ namespace UsageViewer;
 
 public partial class App : System.Windows.Application
 {
+#if DEBUG
+    private const string InstanceMutexName = @"Local\UsageViewer.SingleInstance.Debug";
+#else
     private const string InstanceMutexName = @"Local\UsageViewer.SingleInstance";
+#endif
 
     private Mutex? _instanceMutex;
     private UsageViewerController? _controller;
