@@ -17,6 +17,9 @@ public sealed class UsageViewerController : IAsyncDisposable
     private readonly SnapshotStore _store;
     private readonly Action<Uri> _openBrowser;
     private readonly SemaphoreSlim _refreshGate = new(ConcurrentRefreshLimit, ConcurrentRefreshWaiterLimit);
+    private readonly object _notificationPersistenceLock = new();
+    private UsageSnapshot? _pendingNotificationSnapshot;
+    private bool _notificationPersistenceRunning;
     private AppServerClient? _client;
     private UsageSnapshot? _snapshot;
     private long _snapshotVersion;
@@ -52,15 +55,7 @@ public sealed class UsageViewerController : IAsyncDisposable
 
     public async Task StartAsync()
     {
-        try
-        {
-            await EnsureConnectedAsync().ConfigureAwait(false);
-            await RefreshAsync().ConfigureAwait(false);
-        }
-        catch (Exception error)
-        {
-            SetErrorStatus(error);
-        }
+        await RefreshAsync().ConfigureAwait(false);
     }
 
     public async Task RefreshAsync()
@@ -184,6 +179,29 @@ public sealed class UsageViewerController : IAsyncDisposable
         }
     }
 
+    public async Task DisconnectAsync()
+    {
+        if (_disposed || _client is null)
+            return;
+
+        await _refreshGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_client is null)
+                return;
+
+            _client.RateLimitsUpdated -= OnRateLimitsUpdated;
+            _client.AuthenticationChanged -= OnAuthenticationChanged;
+            await _client.DisposeAsync().ConfigureAwait(false);
+            _client = null;
+            _authenticationKnown = false;
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -234,22 +252,54 @@ public sealed class UsageViewerController : IAsyncDisposable
         _snapshotVersion++;
         _expiryRefreshRequested = false;
         SetStatus(ViewerStatusKind.UpToDate, ViewerText.UpToDate, false);
-        _ = PersistNotificationSnapshotAsync(merged);
+        QueueNotificationSnapshotPersistence(merged);
     }
 
-    private async Task PersistNotificationSnapshotAsync(UsageSnapshot snapshot)
+    private void QueueNotificationSnapshotPersistence(UsageSnapshot snapshot)
     {
-        try
+        var startPersistence = false;
+        lock (_notificationPersistenceLock)
         {
-            await _store.SaveSnapshotAsync(snapshot).ConfigureAwait(false);
+            _pendingNotificationSnapshot = snapshot;
+            if (!_notificationPersistenceRunning)
+            {
+                _notificationPersistenceRunning = true;
+                startPersistence = true;
+            }
         }
-        catch (IOException)
+
+        if (startPersistence)
+            _ = PersistPendingNotificationSnapshotsAsync();
+    }
+
+    private async Task PersistPendingNotificationSnapshotsAsync()
+    {
+        while (true)
         {
-            SetStatus(ViewerStatusKind.UpToDate, $"{ViewerText.UpToDate}{ViewerText.LocalSaveUnavailable}", true);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            SetStatus(ViewerStatusKind.UpToDate, $"{ViewerText.UpToDate}{ViewerText.LocalSaveUnavailable}", true);
+            UsageSnapshot? snapshot;
+            lock (_notificationPersistenceLock)
+            {
+                snapshot = _pendingNotificationSnapshot;
+                _pendingNotificationSnapshot = null;
+                if (snapshot is null)
+                {
+                    _notificationPersistenceRunning = false;
+                    return;
+                }
+            }
+
+            try
+            {
+                await _store.SaveSnapshotAsync(snapshot).ConfigureAwait(false);
+            }
+            catch (IOException)
+            {
+                SetStatus(ViewerStatusKind.UpToDate, $"{ViewerText.UpToDate}{ViewerText.LocalSaveUnavailable}", true);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                SetStatus(ViewerStatusKind.UpToDate, $"{ViewerText.UpToDate}{ViewerText.LocalSaveUnavailable}", true);
+            }
         }
     }
 

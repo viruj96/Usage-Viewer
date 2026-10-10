@@ -5,10 +5,10 @@ Usage Viewer is a small Windows desktop utility that keeps Codex account usage l
 ## What it does
 
 - Shows each usage-limit bucket returned by Codex, including its usage windows, reset countdowns, and available reset credits when present.
-- Refreshes automatically every five minutes. You can also refresh from the window or the tray menu.
+- Refreshes when the window opens or when you choose **Refresh** from the window or tray menu. While the window is visible, it listens for pushed usage updates.
 - Starts ChatGPT sign-in in the default browser when Codex needs authentication.
 - Saves the last usage snapshot locally so it can show stale data while a new refresh is in progress or Codex is unavailable.
-- Keeps running when the window is hidden. Use **Exit** in the tray menu to close the app.
+- Stops the Codex App Server connection when the window is hidden to the tray. The tray icon stays available; showing the window reconnects and refreshes usage. Use **Exit** in the tray menu to close the app.
 
 This app reads the rate-limit data provided by the Codex App Server. It does not calculate usage from prompts or provide an account-wide billing report.
 
@@ -36,11 +36,7 @@ Build the per-user MSI from the repository root in PowerShell:
 powershell -ExecutionPolicy Bypass -File Installer\Build-Msi.ps1
 ```
 
-The MSI is written to `artifacts\msi\UsageViewer-1.0.0.msi`. Increase `ProductVersion` when building a release, for example:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File Installer\Build-Msi.ps1 -ProductVersion 1.0.1
-```
+The MSI is written to `artifacts\msi\UsageViewer.msi`.
 
 When Codex is installed somewhere outside `PATH`, set the executable path before starting the app:
 

@@ -216,7 +216,10 @@ internal sealed class AppServerTransport : IAsyncDisposable
         try
         {
             if (!_process.HasExited)
+            {
                 _process.Kill(true);
+                await _process.WaitForExitAsync().ConfigureAwait(false);
+            }
         }
         catch (InvalidOperationException) { }
         try { await _reader.ConfigureAwait(false); } catch (OperationCanceledException) { }

@@ -17,6 +17,9 @@ public partial class MainWindow : Window
     private readonly TrayIconService _tray;
     private readonly UsageViewerController _controller;
     private readonly RotateTransform _refreshGlyphRotation;
+    private readonly object _pendingViewStateLock = new();
+    private UsageViewerViewState? _pendingViewState;
+    private bool _viewStateUpdateQueued;
     private UsageSnapshotRenderer _snapshotRenderer = null!;
     private long _renderedSnapshotVersion = -1;
     private bool _refreshSpinnerRunning;
@@ -37,15 +40,13 @@ public partial class MainWindow : Window
         _tray.ExitRequested += ExitApplication;
         _pollTimer.Tick += (_, _) => _ = _controller.RefreshAsync();
         _displayTimer.Tick += (_, _) => UpdateFreshnessDisplay();
-        _pollTimer.Start();
-        _displayTimer.Start();
         Closing += OnClosing;
         Loaded += OnLoaded;
         _controller.ViewStateChanged += OnViewStateChanged;
         ApplyViewState(_controller.ViewState);
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
+    private void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (!_initialPlacementApplied)
         {
@@ -55,18 +56,34 @@ public partial class MainWindow : Window
             _initialPlacementApplied = true;
         }
 
-        try
-        {
-            await _controller.StartAsync();
-        }
-        catch (Exception)
-        {
-            // Controller reports operational failures through its view state.
-        }
     }
 
-    private void OnViewStateChanged(UsageViewerViewState state) =>
-        Dispatcher.BeginInvoke(new Action(() => ApplyViewState(state)));
+    private void OnViewStateChanged(UsageViewerViewState state)
+    {
+        lock (_pendingViewStateLock)
+        {
+            _pendingViewState = state;
+            if (_viewStateUpdateQueued)
+                return;
+            _viewStateUpdateQueued = true;
+        }
+
+        Dispatcher.BeginInvoke(new Action(ApplyPendingViewState));
+    }
+
+    private void ApplyPendingViewState()
+    {
+        UsageViewerViewState? state;
+        lock (_pendingViewStateLock)
+        {
+            state = _pendingViewState;
+            _pendingViewState = null;
+            _viewStateUpdateQueued = false;
+        }
+
+        if (state is not null)
+            ApplyViewState(state);
+    }
 
     private void ApplyViewState(UsageViewerViewState state)
     {
@@ -101,8 +118,8 @@ public partial class MainWindow : Window
 
     private void UpdateFreshnessDisplay()
     {
-        _snapshotRenderer.UpdateResetCountdowns();
         _controller.UpdateFreshness();
+        _snapshotRenderer.UpdateResetCountdowns();
     }
 
     private void SetStatus(string value, bool isVisible)
@@ -135,15 +152,33 @@ public partial class MainWindow : Window
         return false;
     }
 
-    private void ShowFromTray()
+    private async void ShowFromTray()
     {
         Topmost = true;
         Show();
         WindowState = WindowState.Normal;
         Activate();
+        try
+        {
+            await _controller.StartAsync();
+        }
+        catch (Exception)
+        {
+            // Controller reports operational failures through its view state.
+        }
+        _pollTimer.Start();
+        _displayTimer.Start();
+        UpdateFreshnessDisplay();
     }
 
-    private void HideToTray() => Hide();
+    private async void HideToTray()
+    {
+        _pollTimer.Stop();
+        _displayTimer.Stop();
+        Hide();
+        await _controller.DisconnectAsync();
+        ProcessMemoryTrimmer.TrimCurrentProcessWorkingSet();
+    }
 
     private void ExitApplication()
     {
@@ -157,12 +192,10 @@ public partial class MainWindow : Window
         if (!_isExiting)
         {
             e.Cancel = true;
-            Hide();
+            HideToTray();
             return;
         }
 
-        _pollTimer.Stop();
-        _displayTimer.Stop();
         _tray.Dispose();
         _controller.ViewStateChanged -= OnViewStateChanged;
     }

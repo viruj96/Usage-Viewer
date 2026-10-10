@@ -4,7 +4,8 @@
            Version="$(var.ProductVersion)"
            UpgradeCode="{52AF316B-3524-46F5-BF41-CA9A32E31295}"
            Scope="perUser">
-    <MajorUpgrade DowngradeErrorMessage="A newer version of Usage Viewer is already installed."
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of Usage Viewer is already installed."
                   Schedule="afterInstallInitialize" />
     <MediaTemplate EmbedCab="yes" />
     <Feature Id="Main" Title="Usage Viewer" Level="1">

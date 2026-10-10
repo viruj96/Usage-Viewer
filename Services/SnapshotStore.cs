@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UsageViewer;
@@ -12,6 +13,7 @@ public sealed class SnapshotStore
     private const string SnapshotFileName = "snapshot.json";
     private const string TemporaryFileSuffix = ".tmp";
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private readonly SemaphoreSlim _snapshotSaveGate = new(1, 1);
     private readonly string _directory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppDataDirectoryName);
 
@@ -56,8 +58,18 @@ public sealed class SnapshotStore
     public Task SaveSettingsAsync(ViewerSettings settings) =>
         SaveAtomicallyAsync(SettingsFileName, JsonSerializer.Serialize(settings, JsonOptions));
 
-    public Task SaveSnapshotAsync(UsageSnapshot snapshot) =>
-        SaveAtomicallyAsync(SnapshotFileName, JsonSerializer.Serialize(snapshot, JsonOptions));
+    public async Task SaveSnapshotAsync(UsageSnapshot snapshot)
+    {
+        await _snapshotSaveGate.WaitAsync();
+        try
+        {
+            await SaveAtomicallyAsync(SnapshotFileName, JsonSerializer.Serialize(snapshot, JsonOptions));
+        }
+        finally
+        {
+            _snapshotSaveGate.Release();
+        }
+    }
 
     private async Task SaveAtomicallyAsync(string fileName, string content)
     {

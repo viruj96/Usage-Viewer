@@ -11,9 +11,28 @@ public sealed class AppServerClient : IAsyncDisposable
 {
     private readonly AppServerTransport _transport;
     private readonly object _loginLock = new();
+    private readonly object _rateLimitsNotificationLock = new();
     private ChatGptLoginSession? _activeLogin;
+    private JsonElement? _latestRateLimitsUpdate;
+    private Action<JsonElement>? _rateLimitsUpdated;
 
-    public event Action<JsonElement>? RateLimitsUpdated;
+    public event Action<JsonElement>? RateLimitsUpdated
+    {
+        add
+        {
+            lock (_rateLimitsNotificationLock)
+            {
+                _rateLimitsUpdated += value;
+                if (_latestRateLimitsUpdate is { } latest)
+                    value?.Invoke(latest);
+            }
+        }
+        remove
+        {
+            lock (_rateLimitsNotificationLock)
+                _rateLimitsUpdated -= value;
+        }
+    }
     public event Action<bool>? AuthenticationChanged;
     public bool IsRunning => _transport.IsRunning;
 
@@ -137,7 +156,13 @@ public sealed class AppServerClient : IAsyncDisposable
     private void HandleNotification(string method, JsonElement parameters)
     {
         if (method == AppServerProtocol.RateLimitsUpdatedMethod)
-            RateLimitsUpdated?.Invoke(parameters);
+        {
+            lock (_rateLimitsNotificationLock)
+            {
+                _latestRateLimitsUpdate = parameters;
+                _rateLimitsUpdated?.Invoke(parameters);
+            }
+        }
         else if (method == AppServerProtocol.AccountUpdatedMethod && parameters.ValueKind == JsonValueKind.Object && parameters.TryGetProperty(AppServerProtocol.AuthModeField, out var authMode))
         {
             var signedIn = authMode.ValueKind != JsonValueKind.Null && IsChatGptAuthMode(authMode);
